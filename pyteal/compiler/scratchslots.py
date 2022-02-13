@@ -67,7 +67,7 @@ def assignScratchSlotsToSubroutines(
     # all scratch slots referenced by only 1 subroutine
     localSlots: Dict[Optional[SubroutineDefinition], Set[ScratchSlot]] = dict()
 
-    byRefSlots: Dict[Optional[SubroutineDefinition], Set[ScratchSlot]] = dict()
+    # byRefSlots: Dict[Optional[SubroutineDefinition], Set[ScratchSlot]] = dict()
 
     for subroutine, slots in subroutineSlots.items():
         allOtherSlots: Set[ScratchSlot] = set()
@@ -78,7 +78,7 @@ def assignScratchSlotsToSubroutines(
 
         globalSlots |= slots & allOtherSlots
         localSlots[subroutine] = slots - globalSlots
-        byRefSlots[subroutine] = {slot for slot in localSlots[subroutine] if slot.byRef}
+        # byRefSlots[subroutine] = {slot for slot in localSlots[subroutine] if slot.byRef}
 
     if len(allSlots) > NUM_SLOTS:
         # TODO: identify which slots can be reused

@@ -2,6 +2,7 @@ from typing import Union
 
 from ..errors import TealInputError, TealInternalError
 from ..types import require_type, TealType
+from ..ir import ops
 
 from .expr import Expr
 from .int import Int
@@ -29,6 +30,7 @@ class ScratchVar:
         self,
         type: TealType = TealType.anytype,
         slotId: Union[int, Expr] = None,
+        idFromStack: bool = None,
         ref: "ScratchVar" = None,
     ):
         """Create a new ScratchVar with an optional type and slot index
@@ -56,20 +58,32 @@ class ScratchVar:
                 "ref must be another ScratchVar but was {}".format(ptype(ref))
             )
 
+        if idFromStack and isinstance(slotId, int):
+            raise TealInputError(
+                "cannot have idFromStack True when specififying a fixed int slotId"
+            )
+
         if ref and slotId is not None:
             raise TealInternalError(
-                "cannot specify slotId for byReference ScratchVar's as they inherit their ref's slot"
+                "ScratchVar: cannot specify slotId for byReference ScratchVar's as they inherit their ref's slot"
             )
 
         self.ref: "ScratchVar" = ref
+
+        self.idFromStack = idFromStack or isinstance(slotId, Expr)
 
         self.slot: Slot
         if self.ref:
             self.slot = self.ref.slot
         else:
-            self.slot = (
-                DynamicSlot(slotId) if isinstance(slotId, Expr) else ScratchSlot(slotId)
+            self.slot = ScratchSlot(
+                requestedSlotId=slotId, idFromStack=self.idFromStack, byRef=self.byRef()
             )
+            # (
+            #     DynamicSlot(slotId, byRef=self.byRef())
+            #     if self.idFromStack
+            #     else ScratchSlot(slotId, byRef=self.byRef())
+            # )
 
         self.type = type
 
@@ -94,16 +108,16 @@ class ScratchVar:
         if self.byRef():
             return self.ref.index()
 
-        return self.slot.id if self.slot.dynamic() else Int(self.slot.id)
+        if self.slot.idFromStack:
+            return self.slot.id
+            # return Expr.fromOp(None, ops.In, [self.slot.id],
+
+        return Int(self.slot.id)
 
     def byRef(self) -> bool:
         return self.ref is not None
 
     def newByRef(self, type: TealType = None):
-        # if not self._stored:
-        #     raise TealInputError("must load into ScratchVar before creating newByRef")
-        # self.load()
-
         if type is None:
             type = self.type
 

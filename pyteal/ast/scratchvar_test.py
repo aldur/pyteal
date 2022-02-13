@@ -9,31 +9,31 @@ options = CompileOptions()
 
 
 def test_scratchvar_init():
-    myvar_default = ScratchVar()
-    assert not myvar_default.slot.dynamic()
-    assert not myvar_default.slot.byRef
-    assert not myvar_default.byRef()
+    sv = ScratchVar()
+    assert sv.slot.idFromStack is False
+    assert sv.byRef() is False
+    assert sv.type == TealType.anytype
 
-    myvar_explicit = ScratchVar(slotId=42)
-    assert not myvar_explicit.slot.dynamic()
-    assert not myvar_explicit.slot.byRef
-    assert not myvar_explicit.byRef()
+    sv = ScratchVar(slotId=42)
+    assert sv.slot.idFromStack is False
+    assert sv.byRef() is False
+    assert sv.type == TealType.anytype
 
-    myvar_from_stack = ScratchVar(slotId=Int(42))
-    assert myvar_from_stack.slot.dynamic()
-    assert not myvar_from_stack.slot.byRef
-    assert not myvar_from_stack.byRef()
+    # myvar_from_stack = ScratchVar(slotId=Int(42))
+    # assert myvar_from_stack.slot.idFromStack
+    # assert myvar_from_stack.byRef() is False
 
-    myvar_default = ScratchVar(ref=myvar_explicit)
-    assert not myvar_default.slot.dynamic()
-    assert myvar_default.slot.byRef
-    assert myvar_default.byRef()
+    sv = ScratchVar(ref=(sv1 := sv))
+    assert sv.slot.idFromStack is False
+    assert sv.byRef() is True
+    assert sv.type == TealType.anytype
+    assert sv.ref == sv1
 
     with pytest.raises(TealInputError):
         ScratchVar("fourty two")
 
     with pytest.raises(TealInternalError):
-        ScratchVar(slotId=42, ref=myvar_explicit)
+        ScratchVar(slotId=42, ref=sv1)
 
     with pytest.raises(TealInternalError):
         ScratchVar(ref="hello")
@@ -140,12 +140,12 @@ def test_scratchvar_assign_load():
 def test_scratchvar_index():
     five_at42 = ScratchVar(TealType.uint64, 42)
     # five_at42.load(Int(5))
-    assert not five_at42.slot.dynamic()
+    assert not five_at42.slot.idFromStack
     assert isinstance(five_at42.index(), Int)
     assert five_at42.index().value == 42
 
-    at_256 = ScratchVar(TealType.uint64)
-    assert at_256.index().value == 0
+    # at_256 = ScratchVar(TealType.uint64)
+    # assert at_256.index().value == 0
 
     # five_at11 = ScratchVar(5, Int(11))
     # assert five_at11.slot.dynamic()

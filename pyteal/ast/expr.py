@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Tuple, List, Union, TYPE_CHECKING
+from typing import Callable, Tuple, List, Union, TYPE_CHECKING
 
 from attr import has
 
-from ..ir import TealBlock, TealSimpleBlock, Op, tealop
+from ..ir import TealBlock, TealSimpleBlock, Op, tealop, LabelReference
 from ..types import TealType
+
 
 if TYPE_CHECKING:
     from ..compiler import CompileOptions
@@ -25,10 +26,10 @@ class Expr(ABC):
 
     def chainOp(
         self,
-        options: "CompileOptions",
+        # options: "CompileOptions",
         op: Op,
         op_args: List[tealop.IMMEDIATE_ARG_TYPE],
-        block_args: List["Expr"],
+        block_args: List[Union["Expr", Callable[[], "Expr"]]],
         type_prefix: str = "AnonymousExpr",
         ttype: TealType = None,
         has_return: bool = None,
@@ -45,7 +46,7 @@ class Expr(ABC):
         """
         return self.fromOp(
             self,
-            options,
+            # options,
             op,
             op_args,
             block_args,
@@ -58,15 +59,42 @@ class Expr(ABC):
     def fromOp(
         cls,
         parent: Union["Expr", None],
-        options: "CompileOptions",
+        # options: "CompileOptions",
         op: Op,
         op_args: List[tealop.IMMEDIATE_ARG_TYPE],
-        block_args: List["Expr"],
+        block_args: List[Union["Expr", Callable[[], "Expr"]]],
         type_prefix: str = "AnonymousExpr",
         ttype: TealType = None,
         has_return: bool = None,
     ) -> "Expr":
+        from . import ScratchSlot, SubroutineDefinition
+
         type_name = "{}_{}".format(type_prefix, cls.ANONYMOUS_EXPR_CLASS_COUNT + 1)
+
+        def lazy_op_arg(
+            op_arg: Union[
+                tealop.IMMEDIATE_ARG_TYPE, Callable[[], tealop.IMMEDIATE_ARG_TYPE]
+            ]
+        ) -> tealop.IMMEDIATE_ARG_TYPE:
+            if isinstance(
+                op_arg, (int, str, LabelReference, ScratchSlot, SubroutineDefinition)
+            ):
+                return op_arg
+            return op_arg()
+
+        def lazy_op_args():
+            return [lazy_op_arg(oa) for oa in op_args]
+
+        def lazy_block_args():
+            return [lazy_block_arg(ba) for ba in block_args]
+
+        def lazy_block_arg(block_arg: Union["Expr", Callable[[], "Expr"]]) -> "Expr":
+            if isinstance(block_arg, Expr):
+                return block_arg
+            return block_arg()
+
+        def lazy_block_args():
+            return [lazy_block_arg(ba) for ba in block_args]
 
         def __str__(_):
             return "{}(op={}, op_args={}, block_args={})".format(
@@ -74,13 +102,10 @@ class Expr(ABC):
             )
 
         def __init__(self):
-            # TealOp:
-            self.op = tealop.TealOp(parent, op, *op_args)
-            # TealBlock:
-            self.teal_block = TealBlock.FromOp(options, self.op, *block_args)
-            # TealType:
+            super().__init__()
+            self.parent = parent
+            self.op = op
             self.type = TealType.anytype if ttype is None else ttype
-            # bool:
             self.has_return = has_return
 
         def type_of(self):
@@ -89,8 +114,9 @@ class Expr(ABC):
         def _has_return(self):
             return self.has_return
 
-        def __teal__(self, _):
-            return self.teal_block
+        def __teal__(self, options):
+            op = tealop.TealOp(self.parent, self.op, *lazy_op_args())
+            return TealBlock.FromOp(options, op, *lazy_block_args())
 
         expr_type = type(
             type_name,

@@ -9,42 +9,63 @@ options = CompileOptions()
 
 
 def test_scratch_init():
-    ######## ScratchSlot.__init__() #########
-
+    assert ScratchSlot.nextSlotId == NUM_SLOTS
     slot = ScratchSlot()
-    assert slot.dynamic() is False
-    assert slot.id >= 0
+    assert slot.byRef is False
+    assert slot.isReservedSlot is False
+    assert slot.idFromStack is False
+    assert slot.id == NUM_SLOTS
+    assert slot.nextSlotId == NUM_SLOTS + 1
 
-    slot_with_requested = ScratchSlot(42)
-    assert slot_with_requested.dynamic() is False
-    assert slot_with_requested.id == 42
+    slot = ScratchSlot(42)
+    assert slot.byRef is False
+    assert slot.isReservedSlot is True
+    assert slot.idFromStack is False
+    assert slot.id == 42
+    assert slot.nextSlotId == NUM_SLOTS + 1
 
-    slot_with_requested = ScratchSlot(requestedSlotId=42)
-    assert slot_with_requested.dynamic() is False
-    assert slot_with_requested.id == 42
+    slot = ScratchSlot(idFromStack=True)
+    assert slot.byRef is False
+    assert slot.isReservedSlot is False
+    assert slot.idFromStack is True
+    assert slot.id == NUM_SLOTS + 1
+    assert slot.nextSlotId == NUM_SLOTS + 2
 
-    with pytest.raises(AssertionError) as e:
+    slot = ScratchSlot(43, idFromStack=True)
+    assert slot.byRef is False
+    assert slot.isReservedSlot is True
+    assert slot.idFromStack is True
+    assert slot.id == 43
+    assert slot.nextSlotId == NUM_SLOTS + 2
+
+    slot = ScratchSlot(44, idFromStack=False)
+    assert slot.byRef is False
+    assert slot.isReservedSlot is True
+    assert slot.idFromStack is False
+    assert slot.id == 44
+    assert slot.nextSlotId == NUM_SLOTS + 2
+
+    slot = ScratchSlot("ignored garbage", "also ignored", byRef=True)
+    assert slot.byRef is True
+    assert slot.isReservedSlot is True
+    assert slot.idFromStack == "also ignored"
+    assert slot.id == "ignored garbage"
+    assert slot.nextSlotId == NUM_SLOTS + 2
+
+    with pytest.raises(TealInputError) as e:
+        ScratchSlot(-1)
+
+    assert "must be in the range" in str(e)
+
+    with pytest.raises(TealInputError) as e:
+        ScratchSlot(NUM_SLOTS)
+
+    assert "must be in the range" in str(e)
+
+    with pytest.raises(TealInputError) as e:
         ScratchSlot(Int(42))
 
-    assert "requestedSlotId must be an int but was provided " in str(e)
-
-    ######## DynamicSlot.__init__() #########
-
-    with pytest.raises(TypeError):
-        dynamic_slot = DynamicSlot()
-
-    dynamic_with_slotExpr = DynamicSlot(Int(42))
-    assert dynamic_with_slotExpr.dynamic() is True
-    assert dynamic_with_slotExpr.id == Int(42)
-
-    dynamic_with_slotExpr = DynamicSlot(slotIdExpr=Int(1337))
-    assert dynamic_with_slotExpr.dynamic() is True
-    assert dynamic_with_slotExpr.id == Int(1337)
-
-    with pytest.raises(AssertionError) as e:
-        DynamicSlot(42)
-
-    assert "slotIdExpr must be an Expr but was provided " in str(e)
+    assert "must be an int" in str(e)
 
 
 def test_scratch_slot():

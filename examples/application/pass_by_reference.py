@@ -17,12 +17,88 @@ linearTransformation_selector = MethodSignature(
 
 
 @Subroutine(TealType.uint64)
+def tradfac(n):
+    return If(n <= Int(1)).Then(Int(1)).Else(n * tradfac(n - Int(1)))
+
+
+def approval_tfac():
+    return tradfac(Int(17))
+
+
+@Subroutine(TealType.none)
+def fac(n, y: ScratchVar):
+    return (
+        If(n <= Int(1))
+        .Then(y.store(Int(1)))
+        .Else(
+            Seq(
+                fac(n - Int(1), y),
+                y.store(n * y.load()),
+            )
+        )
+    )
+
+
+def approval_z1():
+    n = ScratchVar()
+    y = ScratchVar()
+    return Seq(
+        [
+            n.store(Int(10)),
+            y.store(Int(0)),
+            fac(n, y),
+            Approve(),
+        ]
+    )
+
+
+def approval_z2():
+    n = ScratchVar(slotId=17)
+    y = ScratchVar(slotId=42)
+    return Seq(
+        [
+            n.store(Int(10)),
+            y.store(Int(0)),
+            fac(n, y),
+            Approve(),
+        ]
+    )
+
+
+@Subroutine(TealType.uint64)
+def xyzD(x: ScratchVar, y: ScratchVar, z):
+    return Seq(
+        x.store(x.load() + Int(1)),
+        y.store(y.load() + Int(2)),
+        x.load() + y.load() + z,
+    )
+
+
+def approval_xyzD():
+    x = ScratchVar(TealType.uint64)
+    y = ScratchVar(TealType.uint64)
+    a = ScratchVar(TealType.uint64, 142)
+    b = ScratchVar(TealType.uint64, 143)
+    return Seq(
+        [
+            a.store(Int(100)),
+            b.store(Int(200)),
+            x.store(Int(1)),
+            y.store(Int(2)),
+            Pop(xyz(x, y, Int(3))),
+            Pop(xyz(x, y, x.load() + y.load())),
+            Pop(xyz(x, y, x.load() + y.load())),
+            Pop(xyz(a, b, Int(177))),
+            Pop(a.load() + b.load()),
+            Approve(),
+        ]
+    )
+
+
+@Subroutine(TealType.uint64)
 def xyz(x: ScratchVar, y: ScratchVar, z):
     return Seq(
         x.store(x.load() + Int(1)),
-        # x.load():         load 1; loads;
-        # + Int(1):         int 1; +;
-        # x.store(...):     load 1; swap; stores;
         y.store(y.load() + Int(2)),
         x.load() + y.load() + z,
     )
@@ -55,8 +131,8 @@ def identity(x: ScratchVar):
 
 
 def approval_identity():
-    x = ScratchVar(TealType.uint64, Int(42))
-    y = ScratchVar(TealType.uint64, Int(43))
+    x = ScratchVar(TealType.uint64, 42)
+    y = ScratchVar(TealType.uint64, 43)
     return Seq(
         [
             x.store(Int(11)),
@@ -72,8 +148,8 @@ def approval_identity():
     )
 
 
-# Currently broken
-#
+# I no longer believe this should be supported
+
 # @Subroutine(TealType.uint64)
 # def itchy(dynamic_scratcher: ScratchVar, regular_scratcher: ScratchVar) -> Expr:
 #     dyn_idx = dynamic_scratcher.index()
@@ -134,7 +210,7 @@ def increment(x: ScratchVar):
 
 
 def approval_increment():
-    x = ScratchVar(TealType.uint64, Int(128))
+    x = ScratchVar(TealType.uint64, 128)
 
     return Cond(
         [
@@ -161,8 +237,8 @@ def linearTransformation(a, b, c, d, x: ScratchVar, y: ScratchVar):
 
 
 def approval_trans():
-    x = ScratchVar(TealType.uint64, Int(127))
-    y = ScratchVar(TealType.uint64, Int(128))
+    x = ScratchVar(TealType.uint64, 127)
+    y = ScratchVar(TealType.uint64, 128)
 
     # positive affine transformation
     a = Int(1)
@@ -285,7 +361,7 @@ def uint64_log4return(value):
 
 
 def approval_fib2():
-    x = ScratchVar(TealType.uint64, Int(128))
+    x = ScratchVar(TealType.uint64, 128)
 
     return Cond(
         [Txn.application_id() == Int(0), Approve()],
@@ -337,34 +413,30 @@ def clear():
     return Return(Int(1))
 
 
+def compile_and_save(approval, name):
+    teal = Path.cwd() / "examples" / "application" / "teal"
+    compiled = compileTeal(approval, mode=Mode.Application, version=6)
+    with open(teal / (name + ".teal"), "w") as f:
+        f.write(compiled)
+
+
 if __name__ == "__main__":
-    # for n in range(43):
-    #     assert pyfib1(n) == pyfib2(n), f"oops {n}: {pyfib1(n)} != {pyfib2(n)}"
+    for n in range(43):
+        assert pyfib1(n) == pyfib2(n), f"oops {n}: {pyfib1(n)} != {pyfib2(n)}"
     #     print(f"pyfib({n}) = {pyfib1(n):,}")
 
-    teal = Path.cwd() / "examples" / "application" / "teal"
+    # compile_and_save(clear(), "clear")
+    # compile_and_save(approval_increment(), "increment")
+    # compile_and_save(approval_trans(), "matrix")
+    # compile_and_save(approval_add100(), "add100")
+    # compile_and_save(approval_fib2(), "fib2")
+    # compile_and_save(approval_identity(), "repetition")
+    # compile_and_save(approval_xyz(), "xyz")
+    # compile_and_save(approval_xyzD(), "xyzD")
+    # compile_and_save(approval_z1(), "z1")
+    compile_and_save(tradfac(), "tradfac")
+    compile_and_save(approval_z2(), "z2")
 
-    with open(teal / "clear.teal", "w") as f:
-        f.write(compileTeal(clear(), mode=Mode.Application, version=6))
-
-    # with open(teal / "increment.teal", "w") as f:
-    #     f.write(compileTeal(approval_increment(), mode=Mode.Application, version=6))
-
-    # with open(teal / "matrix.teal", "w") as f:
-    #     f.write(compileTeal(approval_trans(), mode=Mode.Application, version=6))
-
-    # with open(teal / "add100.teal", "w") as f:
-    #     f.write(compileTeal(approval_add100(), mode=Mode.Application, version=6))
-
-    # with open(teal / "approval1.teal", "w") as f:
-    #     f.write(compileTeal(approval_fib2(), mode=Mode.Application, version=6))
-
+    # Gone for good?
     # with open(teal / "itch_scratcher.teal", "w") as f:
     #     f.write(compileTeal(approval_itchy(), mode=Mode.Application, version=6))
-
-    # with open(teal / "repetition.teal", "w") as f:
-    #     f.write(compileTeal(approval_identity(), mode=Mode.Application, version=6))
-
-    compiled = compileTeal(approval_xyz(), mode=Mode.Application, version=6)
-    with open(teal / "xyz.teal", "w") as f:
-        f.write(compiled)
