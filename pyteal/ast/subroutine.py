@@ -4,7 +4,7 @@ from inspect import Parameter, isclass, signature
 
 from ..types import TealType
 from ..ir import TealOp, Op, TealBlock
-from ..errors import TealInputError, verifyTealVersion
+from ..errors import TealInputError, TealInternalError, verifyTealVersion
 from .expr import Expr
 from .seq import Seq
 from .scratchvar import ScratchVar
@@ -220,9 +220,11 @@ class SubroutineCall(Expr):
             if isinstance(arg, Expr):
                 ca.append(arg)
             elif isinstance(arg, ScratchVar):
+                # TODO: Zeph - this is ONE BIG REASON WHY IT'S ALL BROKEN
+                # get the index for the implemented pass-by-ref ScratchVar:
                 ca.append(arg.index())
             else:
-                raise TealInputError(
+                raise TealInternalError(
                     "cannot interpert arg {} at index {} as call argument because of unexpected Python type {}".format(
                         arg, i, type(arg)
                     )
@@ -329,9 +331,7 @@ class Subroutine:
 Subroutine.__module__ = "pyteal"
 
 
-def evaluateSubroutine(
-    subroutine: SubroutineDefinition,
-) -> SubroutineDeclaration:
+def evaluateSubroutine(subroutine: SubroutineDefinition) -> SubroutineDeclaration:
     loadedArgs = []
     bodyArgs = []
     for arg in subroutine.implementationParams.keys():
