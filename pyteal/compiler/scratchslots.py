@@ -1,4 +1,3 @@
-from operator import sub
 from typing import List, Set, Dict, Optional, cast
 
 from ..ast import ScratchSlot, SubroutineDefinition
