@@ -333,7 +333,7 @@ Subroutine.__module__ = "pyteal"
 
 def evaluateSubroutine(subroutine: SubroutineDefinition) -> SubroutineDeclaration:
     loadedArgs = []
-    bodyArgs = []
+    argumentVars = []
     for arg in subroutine.implementationParams.keys():
         # TODO: with the variable name "arg" in-hand, we could add labels to ScratchVars
         new_sv = ScratchVar(TealType.anytype)  # increment nextSlotID
@@ -346,7 +346,7 @@ def evaluateSubroutine(subroutine: SubroutineDefinition) -> SubroutineDeclaratio
             body_sv = new_sv
             loadedArgs.append(body_sv.load())
 
-        bodyArgs.append(body_sv)
+        argumentVars.append(body_sv)
 
     subroutineBody = subroutine.implementation(*loadedArgs)
 
@@ -358,7 +358,7 @@ def evaluateSubroutine(subroutine: SubroutineDefinition) -> SubroutineDeclaratio
         )
 
     # need to reverse order of argumentVars because the last argument will be on top of the stack
-    bodyOps = [var.slot.store() for var in bodyArgs[::-1]]
+    bodyOps = [var.slot.store() for var in argumentVars[::-1]]
     bodyOps.append(subroutineBody)
 
     return SubroutineDeclaration(subroutine, Seq(bodyOps))
