@@ -145,21 +145,21 @@ def compileSubroutine(
     subroutineBlocks[currentSubroutine] = start
 
     referencedSubroutines: Set[SubroutineDefinition] = set()
-    subroutineCallbacks: Dict[SubroutineDefinition, SubroutineCall] = {}
+    # subroutineCallbacks: Dict[SubroutineDefinition, SubroutineCall] = {}
     for stmt in teal:
         for subroutine in stmt.getSubroutines():
             referencedSubroutines.add(subroutine)
             assert isinstance(
                 stmt.expr, SubroutineCall
             ), "stmt.expr has unexpected type {}".format(type(stmt.expr))
-            subroutineCallbacks[subroutine] = stmt.expr
+            # subroutineCallbacks[subroutine] = stmt.expr
 
     if currentSubroutine is not None:
         subroutineGraph[currentSubroutine] = referencedSubroutines
 
     newSubroutines = referencedSubroutines - subroutineMapping.keys()
     for subroutine in sorted(newSubroutines, key=lambda subroutine: subroutine.id):
-        cb = subroutineCallbacks[subroutine]
+        # cb = subroutineCallbacks[subroutine]
         declaration = subroutine.getDeclaration()  # callback=cb)
         compileSubroutine(
             declaration,
