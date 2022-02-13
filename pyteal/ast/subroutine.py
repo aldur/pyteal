@@ -332,21 +332,30 @@ Subroutine.__module__ = "pyteal"
 
 
 def evaluateSubroutine(subroutine: SubroutineDefinition) -> SubroutineDeclaration:
+    arg_count = subroutine.argumentCount()
+    param_keys = subroutine.implementationParams.keys()
+
+    if len(param_keys) != arg_count:
+        raise TealInternalError(
+            "subroutine {} had {} implementation params but an argument count of {}".format(
+                subroutine, param_keys, arg_count
+            )
+        )
+
+    argumentVars = [ScratchVar() for _ in range(arg_count)]
     loadedArgs = []
-    argumentVars = []
-    for arg in subroutine.implementationParams.keys():
+    for i, arg in enumerate(param_keys):
         # TODO: with the variable name "arg" in-hand, we could add labels to ScratchVars
-        new_sv = ScratchVar(TealType.anytype)  # increment nextSlotID
-        if subroutine.isRefArg(arg):
+        new_sv = argumentVars[i]
+        if not subroutine.isRefArg(arg):
+            loadedArgs.append(new_sv.load())
+        else:
             body_sv = ScratchVar(TealType.uint64)
             body_sv.store(new_sv.index())
 
+            argumentVars[i] = body_sv
+            # TODO: Zeph- code smell
             loadedArgs.append(body_sv.newByRef(TealType.anytype))
-        else:
-            body_sv = new_sv
-            loadedArgs.append(body_sv.load())
-
-        argumentVars.append(body_sv)
 
     subroutineBody = subroutine.implementation(*loadedArgs)
 
