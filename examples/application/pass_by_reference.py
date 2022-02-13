@@ -148,62 +148,6 @@ def approval_identity():
     )
 
 
-# I no longer believe this should be supported
-
-# @Subroutine(TealType.uint64)
-# def itchy(dynamic_scratcher: ScratchVar, regular_scratcher: ScratchVar) -> Expr:
-#     dyn_idx = dynamic_scratcher.index()
-#     reg_idx = regular_scratcher.index()
-#     stop_val = regular_scratcher.load()
-#     return_val = stop_val + dynamic_scratcher.load()
-#     dynamic_scratcher = ScratchVar(TealType.uint64, dyn_idx + Int(5))
-#     dynamic_scratcher.store(return_val)
-#     return Seq(
-#         If(stop_val > Int(0))
-#         .Then(
-#             Seq(
-#                 regular_scratcher.store(stop_val - Int(1)),
-#                 dynamic_scratcher.store(
-#                     return_val + itchy(dynamic_scratcher, regular_scratcher)
-#                 ),
-#             )
-#         )
-#         .Else(
-#             Log(
-#                 Concat(
-#                     Bytes("dyn_idx:"),
-#                     Itob(dyn_idx),
-#                     Bytes("dyn_val:"),
-#                     Itob(dynamic_scratcher.load()),
-#                     Bytes("reg_idx:"),
-#                     Itob(reg_idx),
-#                     Bytes("reg_val:"),
-#                     Itob(regular_scratcher.load()),
-#                 )
-#             )
-#         ),
-#         return_val,
-#     )
-
-
-# def approval_itchy():
-#     regular_scratcher = ScratchVar(TealType.uint64)
-#     dynamic_scratcher = ScratchVar(TealType.uint64, regular_scratcher.index() + Int(5))
-
-#     return Cond(
-#         [
-#             Txn.application_args[0] == itchy_selector,
-#             Return(
-#                 Seq(
-#                     regular_scratcher.store(Int(1)),
-#                     dynamic_scratcher.store(Int(1)),
-#                     itchy(dynamic_scratcher, regular_scratcher),
-#                 )
-#             ),
-#         ],
-#     )
-
-
 @Subroutine(TealType.none)
 def increment(x: ScratchVar):
     return Seq(x.store(x.load() + Int(1)))
@@ -435,8 +379,4 @@ if __name__ == "__main__":
     # compile_and_save(approval_xyzD(), "xyzD")
     # compile_and_save(approval_z1(), "z1")
     compile_and_save(approval_tfac(), "tradfac")
-    compile_and_save(approval_z2(), "z2")
-
-    # Gone for good?
-    # with open(teal / "itch_scratcher.teal", "w") as f:
-    #     f.write(compileTeal(approval_itchy(), mode=Mode.Application, version=6))
+    # compile_and_save(approval_z2(), "z2")

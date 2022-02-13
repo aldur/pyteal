@@ -84,12 +84,11 @@ class SubroutineDefinition:
         return arg in anns and anns[arg] is ScratchVar
 
     def getDeclaration(
-        # self, callback: "SubroutineCall" = None # Z - what's going on
         self,
     ) -> "SubroutineDeclaration":
         if self.declaration is None:
             # lazy evaluate subroutine
-            self.declaration = evaluateSubroutine(self)  # , callback=callback)
+            self.declaration = evaluateSubroutine(self)
         return self.declaration
 
     def name(self) -> str:
@@ -282,11 +281,9 @@ class SubroutineFnWrapper:
         return self.subroutine.name()
 
     def type_of(self):
-        # TODO: should we get the type from self.subroutine.return_type ?
         return self.subroutine.getDeclaration().type_of()
 
     def has_return(self):
-        # TODO: should we just infer as self.type_of() != TealType.none ?
         return self.subroutine.getDeclaration().has_return()
 
 
@@ -360,7 +357,7 @@ def evaluateSubroutine(subroutine: SubroutineDefinition) -> SubroutineDeclaratio
     subroutineBody = subroutine.implementation(*loadedArgs)
 
     if not isinstance(subroutineBody, Expr):
-        raise TealInputError(
+        raise TealInternalError(
             "Subroutine function does not return a PyTeal expression. Got type {}".format(
                 type(subroutineBody)
             )
