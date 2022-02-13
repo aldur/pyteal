@@ -84,7 +84,7 @@ class SubroutineDefinition:
         return arg in anns and anns[arg] is ScratchVar
 
     def getDeclaration(
-        # self, callback: "SubroutineCall" = None
+        # self, callback: "SubroutineCall" = None # Z - what's going on
         self,
     ) -> "SubroutineDeclaration":
         if self.declaration is None:
