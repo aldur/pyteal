@@ -434,7 +434,7 @@ if __name__ == "__main__":
     # compile_and_save(approval_xyz(), "xyz")
     # compile_and_save(approval_xyzD(), "xyzD")
     # compile_and_save(approval_z1(), "z1")
-    compile_and_save(tradfac(), "tradfac")
+    compile_and_save(approval_tfac(), "tradfac")
     compile_and_save(approval_z2(), "z2")
 
     # Gone for good?
