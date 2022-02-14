@@ -1,5 +1,7 @@
 import pytest
 
+from pyteal.ast.scratch import ScratchReference
+
 from .. import *
 
 # this is not necessary but mypy complains if it's not included
@@ -24,48 +26,47 @@ def test_scratch_init():
     assert slot.id == 42
     assert slot.nextSlotId == NUM_SLOTS + 1
 
-    slot = ScratchSlot(idFromStack=True)
-    assert slot.byRef is False
-    assert slot.isReservedSlot is False
-    assert slot.idFromStack is True
-    assert slot.id == NUM_SLOTS + 1
-    assert slot.nextSlotId == NUM_SLOTS + 2
-
-    slot = ScratchSlot(43, idFromStack=True)
-    assert slot.byRef is False
-    assert slot.isReservedSlot is True
-    assert slot.idFromStack is True
-    assert slot.id == 43
-    assert slot.nextSlotId == NUM_SLOTS + 2
-
     slot = ScratchSlot(44, idFromStack=False)
     assert slot.byRef is False
     assert slot.isReservedSlot is True
     assert slot.idFromStack is False
     assert slot.id == 44
-    assert slot.nextSlotId == NUM_SLOTS + 2
+    assert slot.nextSlotId == NUM_SLOTS + 1
 
     slot = ScratchSlot("ignored garbage", "also ignored", byRef=True)
     assert slot.byRef is True
     assert slot.isReservedSlot is True
     assert slot.idFromStack == "also ignored"
     assert slot.id == "ignored garbage"
-    assert slot.nextSlotId == NUM_SLOTS + 2
+    assert slot.nextSlotId == NUM_SLOTS + 1
+
+    with pytest.raises(TealInputError) as e:
+        ScratchSlot(idFromStack=True)
+    assert "cannot request slot id of type <class 'NoneType'>" in str(e)
+    assert slot.nextSlotId == NUM_SLOTS + 1
+
+    with pytest.raises(TealInputError) as e:
+        ScratchSlot(43, idFromStack=True)
+    assert (
+        "cannot request idFromStack with type requested slot id of type <class 'int'>"
+        in str(e)
+    )
+    assert slot.nextSlotId == NUM_SLOTS + 1
 
     with pytest.raises(TealInputError) as e:
         ScratchSlot(-1)
-
     assert "must be in the range" in str(e)
+    assert slot.nextSlotId == NUM_SLOTS + 1
 
     with pytest.raises(TealInputError) as e:
         ScratchSlot(NUM_SLOTS)
-
     assert "must be in the range" in str(e)
+    assert slot.nextSlotId == NUM_SLOTS + 1
 
     with pytest.raises(TealInputError) as e:
         ScratchSlot(Int(42))
-
-    assert "must be an int" in str(e)
+    assert "cannot request slot id of type" in str(e)
+    assert slot.nextSlotId == NUM_SLOTS + 1
 
 
 def test_scratch_slot():
@@ -166,3 +167,30 @@ def test_scratch_assign_id_invalid():
 
     with pytest.raises(TealInputError):
         slot = ScratchSlot(NUM_SLOTS)
+
+
+def test_scratch_index():
+    slot = ScratchSlot()
+    expr = ScratchReference(slot)
+    assert expr.type_of() == TealType.uint64
+    expected, _ = Int(NUM_SLOTS).__teal__(options)
+    actual, _ = expr.__teal__(options)
+    with TealComponent.Context.ignoreExprEquality():
+        expected == actual
+
+    slot = ScratchSlot(42)
+    expr = ScratchReference(slot)
+    assert expr.type_of() == TealType.uint64
+    expected, _ = Int(42).__teal__(options)
+    actual, _ = expr.__teal__(options)
+    with TealComponent.Context.ignoreExprEquality():
+        expected == actual
+
+    six_expr = Int(2) * Int(3)
+    slot = ScratchSlot(six_expr, idFromStack=True)
+    expr = ScratchReference(slot)
+    assert expr.type_of() == TealType.uint64
+    expected, _ = six_expr.__teal__(options)
+    actual, _ = expr.__teal__(options)
+    with TealComponent.Context.ignoreExprEquality():
+        expected == actual

@@ -6,7 +6,7 @@ from ..ir import ops
 
 from .expr import Expr
 from .int import Int
-from .scratch import DynamicSlot, ScratchSlot, ScratchLoad, Slot
+from .scratch import ScratchReference, ScratchSlot, ScratchLoad
 
 # TODO: can we change all the references in this repo to builtins as params/vars to stop shadowing python. EG: rename type fields to ttype
 ptype = type
@@ -40,7 +40,13 @@ class ScratchVar:
                 expression with an incompatiable type is stored in this variable. Defaults to
                 TealType.anytype.
             slotId (optional): A scratch slot id that the compiler must store the value.
-                This id may be a Python int in the range [0-256).
+                This id may be a Python int in the range [0-256) or an expression which evaluates to
+                int.
+
+        WARNING: There are no checks that a slot created dynamically from the stack will
+                not clash with the slots that the compiler creates, so use with great caution. It
+                is recommended that dynamic slot indices should be as high as possible, but this
+                does not in itself guarantee anything.
         """
 
         if not isinstance(type, (TealType, ptype(None))):
@@ -72,18 +78,13 @@ class ScratchVar:
 
         self.idFromStack = idFromStack or isinstance(slotId, Expr)
 
-        self.slot: Slot
+        self.slot: ScratchSlot
         if self.ref:
             self.slot = self.ref.slot
         else:
             self.slot = ScratchSlot(
                 requestedSlotId=slotId, idFromStack=self.idFromStack, byRef=self.byRef()
             )
-            # (
-            #     DynamicSlot(slotId, byRef=self.byRef())
-            #     if self.idFromStack
-            #     else ScratchSlot(slotId, byRef=self.byRef())
-            # )
 
         self.type = type
 
@@ -108,11 +109,7 @@ class ScratchVar:
         if self.byRef():
             return self.ref.index()
 
-        if self.slot.idFromStack:
-            return self.slot.id
-            # return Expr.fromOp(None, ops.In, [self.slot.id],
-
-        return Int(self.slot.id)
+        return self.slot.index()
 
     def byRef(self) -> bool:
         return self.ref is not None

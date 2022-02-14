@@ -351,7 +351,6 @@ def evaluateSubroutine(subroutine: SubroutineDefinition) -> SubroutineDeclaratio
             body_sv.store(new_sv.index())
 
             argumentVars[i] = body_sv
-            # TODO: Zeph- code smell
             loadedArgs.append(body_sv.newByRef(TealType.anytype))
 
     subroutineBody = subroutine.implementation(*loadedArgs)

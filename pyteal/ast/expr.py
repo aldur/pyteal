@@ -33,7 +33,7 @@ class Expr(ABC):
         type_prefix: str = "AnonymousExpr",
         ttype: TealType = None,
         has_return: bool = None,
-    ):
+    ) -> "Expr":
         """Helper method for creating anonymous expressions. For Example:
         >>> parent_expr = some Expr object (e.g. Self if you're in a Expr subtype)
         >>> pop3 = parent_expr.chainOp(

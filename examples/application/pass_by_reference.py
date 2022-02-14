@@ -16,9 +16,39 @@ linearTransformation_selector = MethodSignature(
 )
 
 
+@Subroutine(TealType.none)
+def addIndices(a: ScratchVar, b: ScratchVar, c):
+    return Seq(
+        Pop(a.index()),
+        Pop(a.load()),
+        a.store(Int(17)),
+        Pop(c),
+        Pop(a.index() * b.index()),
+    )
+
+
+def approval_idx():
+    x42 = ScratchVar(slotId=42)
+    x1 = ScratchVar(slotId=1)
+    y = ScratchVar()
+    z = ScratchVar()
+
+    return Seq(
+        x42.store(Int(0)),
+        x1.store(Int(0)),
+        y.store(Int(0)),
+        z.store(Int(0)),
+        Pop(x1.index()),
+        Pop(y.load()),
+        Pop(z.load()),
+        addIndices(x42, x1, z.load()),
+        Int(11),
+    )
+
+
 @Subroutine(TealType.uint64)
 def tradfac(n):
-    return If(n <= Int(1)).Then(Int(1)).Else(n * tradfac(n - Int(1)))
+    return If(n <= Int(1)).Then(Int(1)).Else(tradfac(n - Int(1)) * n)
 
 
 def approval_tfac():
@@ -378,5 +408,6 @@ if __name__ == "__main__":
     # compile_and_save(approval_xyz(), "xyz")
     # compile_and_save(approval_xyzD(), "xyzD")
     # compile_and_save(approval_z1(), "z1")
-    compile_and_save(approval_tfac(), "tradfac")
+    # compile_and_save(approval_tfac(), "tradfac")
     # compile_and_save(approval_z2(), "z2")
+    compile_and_save(approval_idx(), "idx")

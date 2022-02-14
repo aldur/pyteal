@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, cast, Union
+from typing import TYPE_CHECKING, Sequence, cast, Union
 
 from attr import has
 from pyteal.ast.unaryexpr import UnaryExpr
@@ -10,7 +10,7 @@ from ..config import NUM_SLOTS
 from ..errors import TealInputError, TealInternalError
 
 from .expr import Expr
-from .int import Int
+from .seq import Seq
 
 if TYPE_CHECKING:
     from ..compiler import CompileOptions
@@ -121,8 +121,8 @@ class ScratchSlot(Slot):
 
     def __init__(
         self,
-        requestedSlotId: int = None,
-        idFromStack=False,
+        requestedSlotId: Union[int, Expr] = None,
+        idFromStack: bool = False,
         byRef: bool = False,
     ) -> None:
         """Initializes a scratch slot with a particular id
@@ -137,7 +137,7 @@ class ScratchSlot(Slot):
             byRef (default False): (recommended internal use only) indicates that the slot belongs to a ScratchVar that is
             referencing another ScratchVar, and that therefore no additional space should be allocated for this slot
         """
-        # super().__init__(byRef=byRef)
+
         self.byRef = byRef
         self.isReservedSlot = requestedSlotId is not None
         self.idFromStack = idFromStack
@@ -147,22 +147,44 @@ class ScratchSlot(Slot):
             self.id = requestedSlotId
             return
 
-        if requestedSlotId is None:
+        if requestedSlotId is None and not idFromStack:
             self.id = ScratchSlot.nextSlotId
             ScratchSlot.nextSlotId += 1
             return
 
         self.id = requestedSlotId
 
-        if not isinstance(self.id, int):
-            raise TealInputError("a requestedSlotId must be an int")
+        if not isinstance(requestedSlotId, (int, Expr)):
+            raise TealInputError(
+                "cannot request slot id of type {}".format(type(requestedSlotId))
+            )
 
+        if self.idFromStack:
+            if not isinstance(requestedSlotId, Expr):
+                raise TealInputError(
+                    "cannot request idFromStack with type requested slot id of type {}".format(
+                        type(requestedSlotId)
+                    )
+                )
+            return
+
+        if not isinstance(requestedSlotId, int):
+            raise TealInputError(
+                "cannot request slot id of type {} when not requesting idFromStack".format(
+                    type(requestedSlotId)
+                )
+            )
+
+        # WLOG: must be an int
         if not 0 <= self.id < NUM_SLOTS:
             raise TealInputError(
                 "requestedSlotId {} must be in the range [0, {})".format(
                     self.id, NUM_SLOTS
                 )
             )
+
+    def index(self) -> Expr:
+        return ScratchReference(self)
 
     def store(
         self, value: Expr = None, byRef: bool = False, ttype: TealType = None
@@ -174,7 +196,7 @@ class ScratchSlot(Slot):
             the stack will be stored. NOTE: storing the last value on the stack breaks the typical
             semantics of PyTeal, only use if you know what you're doing.
         """
-        # TODO: which friggin byRef am I using?
+        # TODO: which byRef am I using?
         if value is not None:
             return ScratchStore(self, value, byRef=byRef, ttype=ttype)
 
@@ -206,6 +228,51 @@ class ScratchSlot(Slot):
 ScratchSlot.__module__ = "pyteal"
 
 
+class ScratchReference(Expr):
+    """Expression to return a scratch space's slot index.
+    In the case that the slot's index is gotten from the stack, return its slot index expression"""
+
+    def __init__(self, slot: ScratchSlot):
+        """Create a new ScratchIndex expression.
+
+        Args:
+            slot: The slot to load the value from.
+        """
+        super().__init__()
+        self.slot = slot
+        self.type = TealType.uint64
+
+    def __str__(self):
+        return "(Load {})".format(self.slot)
+
+    def __teal__(self, options: "CompileOptions"):
+        from ..ir import TealOp, Op, TealBlock, TealSimpleBlock
+
+        if self.slot.idFromStack:
+            if not isinstance(self.slot.id, Expr):
+                raise TealInternalError(
+                    "uncexpected slot id type {}".format(type(self.slot.id))
+                )
+            return self.slot.id.__teal__(options)
+
+        if not isinstance(self.slot.id, int):
+            raise TealInternalError(
+                "uncexpected slot id type {}".format(type(self.slot.id))
+            )
+
+        op = TealOp(self, Op.int, self.slot)
+        return TealBlock.FromOp(options, op)
+
+    def type_of(self):
+        return self.type
+
+    def has_return(self):
+        return False
+
+
+ScratchReference.__module__ = "pyteal"
+
+
 class ScratchLoad(Expr):
     """Expression to load a value from scratch space."""
 
@@ -222,13 +289,28 @@ class ScratchLoad(Expr):
         super().__init__()
         self.slot = slot
         self.type = type
-        self.byRef = byRef
+        self.byRef: bool = byRef
 
     def __str__(self):
         return "(Load {})".format(self.slot)
 
     def __teal__(self, options: "CompileOptions"):
-        from ..ir import TealOp, Op, TealBlock, TealSimpleBlock
+        from ..ir import TealOp, Op, TealBlock
+
+        if self.byRef:
+            return (
+                self.chainOp(
+                    Op.loads,
+                    op_args=[],
+                    block_args=[],
+                )
+                .chainOp(
+                    Op.load,
+                    op_args=[self.slot],
+                    block_args=[],
+                )
+                .__teal__(options)
+            )
 
         if self.slot.idFromStack:
             load_op = Op.loads
@@ -240,14 +322,7 @@ class ScratchLoad(Expr):
             block_args = []
 
         op = TealOp(self, load_op, *op_args)
-        start, opBlock = TealBlock.FromOp(options, op, *block_args)
-
-        if self.byRef:
-            opBlock = TealSimpleBlock([TealOp(self, Op.loads)])
-            # rewiring [start] --> [new opBlock]
-            cast(TealSimpleBlock, start).setNextBlock(opBlock)
-
-        return start, opBlock
+        return TealBlock.FromOp(options, op, *block_args)
 
     def type_of(self):
         return self.type
